@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.PermissionChecker
 
@@ -13,22 +14,30 @@ import androidx.core.content.PermissionChecker
 class PermissionManager {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1230
+
+        private fun getRequiredPermissions(): Array<String> {
+            // From Android 10 (API 29) and above, WRITE_EXTERNAL_STORAGE is deprecated/ignored.
+            // We only need CAMERA for opening/previewing the UVC camera.
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                arrayOf(Manifest.permission.CAMERA)
+            } else {
+                arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                )
+            }
+        }
+
+        private fun isPermissionGranted(context: Context, permission: String): Boolean {
+            return PermissionChecker.checkSelfPermission(context, permission) == PermissionChecker.PERMISSION_GRANTED
+        }
         
         /**
          * Check if camera and storage permissions are granted
          */
         fun hasRequiredPermissions(context: Context): Boolean {
-            val hasCameraPermission = PermissionChecker.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            )
-            val hasStoragePermission = PermissionChecker.checkSelfPermission(
-                context,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            
-            return hasCameraPermission == PermissionChecker.PERMISSION_GRANTED
-                && hasStoragePermission == PermissionChecker.PERMISSION_GRANTED
+            val permissions = getRequiredPermissions()
+            return permissions.all { perm -> isPermissionGranted(context, perm) }
         }
         
         /**
@@ -40,18 +49,19 @@ class PermissionManager {
                 return false
             }
             
-            if (hasRequiredPermissions(activity)) {
+            if (hasRequiredPermissions(activity.applicationContext)) {
                 return true
             }
             
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                ),
-                PERMISSION_REQUEST_CODE
-            )
+            val permissionsToRequest = getRequiredPermissions()
+                .filter { perm -> !isPermissionGranted(activity.applicationContext, perm) }
+                .toTypedArray()
+
+            if (permissionsToRequest.isEmpty()) {
+                return true
+            }
+
+            ActivityCompat.requestPermissions(activity, permissionsToRequest, PERMISSION_REQUEST_CODE)
             return false
         }
         
