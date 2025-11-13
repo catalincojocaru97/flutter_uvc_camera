@@ -246,79 +246,94 @@ class _CameraTestState extends State<CameraTest> {
   }
 
   Widget _buildCameraPreview() {
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                spreadRadius: 1,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double containerWidth = constraints.maxWidth;
+        const double aspectRatio = 16 / 9; // Default modern camera ratio
+        final double containerHeight = containerWidth / aspectRatio;
+
+        return SizedBox(
+          width: containerWidth,
+          child: Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: containerWidth,
+                    height: containerHeight,
+                    child: UVCCameraView(
+                      cameraController: cameraController,
+                      params: const UVCCameraViewParamsEntity(
+                        frameFormat: 1,
+                        rawPreviewData: true,
+                        captureRawImage: true,
+                      ),
+                      width: containerWidth,
+                      height: containerHeight,
+                    ),
+                  ),
+                ),
               ),
+
+              // 录制状态指示器
+              if (isRecording)
+                Positioned(
+                  bottom: 30,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 30),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: Colors.red.shade700, width: 2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'REC $recordingTime',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: UVCCameraView(
-              cameraController: cameraController,
-              params: const UVCCameraViewParamsEntity(
-                frameFormat:
-                    1, // Prefer MJPEG for broader compatibility (e.g., OBSBOT)
-                rawPreviewData:
-                    true, // Ensure NV21 frames for image/video capture
-                captureRawImage: true,
-              ),
-              width: 300,
-              height: 300,
-            ),
-          ),
-        ),
-
-        // 录制状态指示器
-        if (isRecording)
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 30),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.red.shade700, width: 2),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'REC $recordingTime',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
 

@@ -107,35 +107,44 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
       body: Column(
         children: [
           // Camera preview
-          Container(
-            margin: const EdgeInsets.all(16),
-            height: 200,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: UVCCameraView(
-                cameraController: cameraController,
-                params: const UVCCameraViewParamsEntity(
-                  frameFormat: 1, // Prefer MJPEG for broader compatibility
-                  rawPreviewData: true, // Enable NV21 callback for capture/feature reads
-                  captureRawImage: true,
-                ),
-                width: double.infinity,
-                height: 200,
+          LayoutBuilder(builder: (context, constraints) {
+            final double containerWidth = constraints.maxWidth;
+            const double aspectRatio = 16 / 9; // Default modern camera ratio
+            final double containerHeight = containerWidth / aspectRatio;
+
+            return Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ),
-          ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  width: containerWidth,
+                  height: containerHeight,
+                  child: UVCCameraView(
+                    cameraController: cameraController,
+                    params: const UVCCameraViewParamsEntity(
+                      frameFormat: 1,
+                      rawPreviewData: true,
+                      captureRawImage: true,
+                    ),
+                    width: containerWidth,
+                    height: containerHeight,
+                  ),
+                ),
+              ),
+            );
+          }),
 
           // Camera open/close buttons
           Row(
