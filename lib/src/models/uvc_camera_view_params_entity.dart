@@ -19,11 +19,21 @@ class UVCCameraViewParamsEntity {
   ///  DEFAULT_BANDWIDTH = 1
   final double? bandwidthFactor;
 
+  /// Whether to enable raw preview data callback (NV21) for capture
+  /// Defaults to false to reduce overhead unless needed
+  final bool? rawPreviewData;
+
+  /// Whether to enable raw image capture support
+  /// Defaults to false
+  final bool? captureRawImage;
+
   const UVCCameraViewParamsEntity({
     this.minFps = 10,
     this.maxFps = 60,
     this.bandwidthFactor = 1.0,
     this.frameFormat = 1,
+    this.rawPreviewData = false,
+    this.captureRawImage = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,7 +41,9 @@ class UVCCameraViewParamsEntity {
       "minFps": minFps,
       "maxFps": maxFps,
       "frameFormat": frameFormat,
-      "bandwidthFactor": bandwidthFactor
+      "bandwidthFactor": bandwidthFactor,
+      "rawPreviewData": rawPreviewData,
+      "captureRawImage": captureRawImage,
     };
   }
 }

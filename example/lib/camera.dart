@@ -101,7 +101,7 @@ class _CameraTestState extends State<CameraTest> {
             ),
 
             // Camera preview
-            if (cameraController != null) _buildCameraPreview(),
+            _buildCameraPreview(),
 
             // Camera settings
             _buildSectionTitle('Camera Settings'),
@@ -124,8 +124,11 @@ class _CameraTestState extends State<CameraTest> {
                   Colors.purple,
                   () {
                     cameraController
-                        ?.getCurrentCameraRequestParameters()
-                        .then((value) => showCustomToast(value.toString()));
+                        .getCurrentCameraRequestParameters()
+                        .then((value) {
+                      debugPrint('Camera parameters: $value');
+                      showCustomToast(value.toString());
+                    });
                   },
                 ),
               ],
@@ -262,8 +265,14 @@ class _CameraTestState extends State<CameraTest> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: UVCCameraView(
-              cameraController: cameraController!,
-              params: const UVCCameraViewParamsEntity(frameFormat: 0),
+              cameraController: cameraController,
+              params: const UVCCameraViewParamsEntity(
+                frameFormat:
+                    1, // Prefer MJPEG for broader compatibility (e.g., OBSBOT)
+                rawPreviewData:
+                    true, // Ensure NV21 frames for image/video capture
+                captureRawImage: true,
+              ),
               width: 300,
               height: 300,
             ),

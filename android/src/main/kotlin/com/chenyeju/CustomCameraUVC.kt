@@ -173,23 +173,16 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
             )
         } catch (e: Exception) {
             try {
-                previewSize = getSuitableSize(request.previewWidth, request.previewHeight).apply {
-                    mCameraRequest!!.previewWidth = width
-                    mCameraRequest!!.previewHeight = height
-                }
-                if (! isPreviewSizeSupported(previewSize)) {
-                    postStateEvent(ICameraStateCallBack.State.ERROR, "unsupported preview size")
-                    closeCamera()
-                    Logger.e(TAG, "open camera failed, preview size($previewSize) unsupported-> ${mUvcCamera?.supportedSizeList}")
-                    return
-                }
-                Logger.e(TAG, " setPreviewSize failed, try to use yuv format...")
+                // Try alternate frame format if first attempt failed
+                val altFormat = if (frameFormat == UVCCamera.FRAME_FORMAT_MJPEG)
+                    UVCCamera.FRAME_FORMAT_YUYV else UVCCamera.FRAME_FORMAT_MJPEG
+                Logger.e(TAG, " setPreviewSize failed with format=$frameFormat, trying alternate format=$altFormat ...")
                 mUvcCamera?.setPreviewSize(
                     previewSize.width,
                     previewSize.height,
                     minFps,
                     maxFps,
-                    UVCCamera.FRAME_FORMAT_YUYV,
+                    altFormat,
                     UVCCamera.DEFAULT_BANDWIDTH
                 )
             } catch (e: Exception) {
