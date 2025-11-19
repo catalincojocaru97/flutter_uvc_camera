@@ -13,6 +13,7 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
   CameraFeatures? features;
   bool isLoading = false;
   bool isCameraOpen = false;
+  bool _isActionInProgress = false;
 
   // Current values for camera features
   int brightness = 0;
@@ -34,23 +35,32 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
       showCustomToast(state);
     };
     cameraController.cameraStateCallback = (state) {
+      if (!mounted) return;
       setState(() {
         isCameraOpen = state == UVCCameraState.opened;
-        if (isCameraOpen) {
-          _loadCameraFeatures();
+        if (state == UVCCameraState.opened ||
+            state == UVCCameraState.closed ||
+            state == UVCCameraState.error) {
+          _isActionInProgress = false;
         }
       });
+      if (state == UVCCameraState.opened) {
+        _loadCameraFeatures();
+      }
     };
   }
 
   @override
   void dispose() {
+    cameraController.msgCallback = null;
+    cameraController.cameraStateCallback = null;
     cameraController.closeCamera();
     cameraController.dispose();
     super.dispose();
   }
 
   void showCustomToast(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -71,6 +81,7 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
 
     try {
       final result = await cameraController.getAllCameraFeatures();
+      if (!mounted) return;
       if (result != null) {
         setState(() {
           features = result;
@@ -91,9 +102,11 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
     } catch (e) {
       showCustomToast("Error loading features: $e");
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -151,9 +164,9 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               ElevatedButton.icon(
-                onPressed: isCameraOpen
-                    ? null
-                    : () => cameraController.openUVCCamera(),
+                onPressed: (!isCameraOpen && !_isActionInProgress)
+                    ? _handleOpenCamera
+                    : null,
                 icon: const Icon(Icons.camera),
                 label: const Text('Open Camera'),
                 style: ElevatedButton.styleFrom(
@@ -164,8 +177,9 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
               ),
               const SizedBox(width: 16),
               ElevatedButton.icon(
-                onPressed:
-                    isCameraOpen ? () => cameraController.closeCamera() : null,
+                onPressed: (isCameraOpen && !_isActionInProgress)
+                    ? _handleCloseCamera
+                    : null,
                 icon: const Icon(Icons.close),
                 label: const Text('Close Camera'),
                 style: ElevatedButton.styleFrom(
@@ -222,7 +236,8 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
                               onChanged: features?.autoWhiteBalance != null
                                   ? (value) {
                                       setState(() => autoWhiteBalance = value);
-                                      cameraController.setAutoWhiteBalance(value);
+                                      cameraController
+                                          .setAutoWhiteBalance(value);
                                     }
                                   : null,
                             ),
@@ -483,6 +498,34 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleOpenCamera() async {
+    if (_isActionInProgress) return;
+    setState(() {
+      _isActionInProgress = true;
+    });
+    try {
+      await cameraController.openUVCCamera();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isActionInProgress = false);
+      showCustomToast('Failed to open camera: $e');
+    }
+  }
+
+  Future<void> _handleCloseCamera() async {
+    if (_isActionInProgress) return;
+    setState(() {
+      _isActionInProgress = true;
+    });
+    try {
+      cameraController.closeCamera();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isActionInProgress = false);
+      showCustomToast('Failed to close camera: $e');
     }
   }
 }

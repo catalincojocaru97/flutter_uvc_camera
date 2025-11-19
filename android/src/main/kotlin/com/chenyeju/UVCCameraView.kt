@@ -117,8 +117,10 @@ internal class UVCCameraView(
     }
 
     fun initCamera() {
+        Logger.i(TAG, "initCamera called. Permissions=${PermissionManager.hasRequiredPermissions(mContext)}")
         if (!PermissionManager.requestPermissionsIfNeeded(mActivity)) {
-            stateManager.updateState(CameraStateManager.CameraState.ERROR, "Permission denied")
+            // Permission requested; wait for user response via onPermissionResult
+            Logger.i(TAG, "initCamera pending user permissions")
             return
         }
         
@@ -135,12 +137,53 @@ internal class UVCCameraView(
         }
     }
 
+    private var isSurfaceAvailable = false
+    private var pendingOpenRequest = false
+    private var isClientRegistered = false
+    private var isResetting = false
+
+    private fun processPendingOpenRequest() {
+        if (
+            pendingOpenRequest &&
+            isSurfaceAvailable &&
+            PermissionManager.hasRequiredPermissions(mContext) &&
+            mCameraClient != null &&
+            stateManager.getCurrentState() == CameraStateManager.CameraState.CLOSED
+        ) {
+            Logger.i(TAG, "Processing pending open request")
+            pendingOpenRequest = false
+            openUVCCamera()
+        }
+    }
+
     fun openUVCCamera() {
+        Logger.i(TAG, "openUVCCamera requested. cameraClient=${mCameraClient != null}, surfaceReady=$isSurfaceAvailable, currentState=${stateManager.getCurrentState()}")
         if (!PermissionManager.hasRequiredPermissions(mContext)) {
+            Logger.i(TAG, "openUVCCamera missing permissions -> requesting")
             PermissionManager.requestPermissionsIfNeeded(mActivity)
+            pendingOpenRequest = true
+            return
+        }
+
+        if (!isSurfaceAvailable) {
+            Logger.i(TAG, "Surface not ready yet. Deferring open request.")
+            pendingOpenRequest = true
+            return
+        }
+
+        if (mCameraClient == null) {
+            Logger.i(TAG, "Camera client not registered. Registering before open.")
+            pendingOpenRequest = true
+            registerMultiCamera()
+            return
+        }
+
+        if (stateManager.isOpened() || stateManager.getCurrentState() == CameraStateManager.CameraState.OPENING) {
+            Logger.i(TAG, "Camera already opening/opened. Ignoring duplicate open request.")
             return
         }
         
+        pendingOpenRequest = false
         stateManager.updateState(CameraStateManager.CameraState.OPENING)
         openCamera()
     }
@@ -177,11 +220,25 @@ internal class UVCCameraView(
     }
 
     fun registerMultiCamera() {
+        Logger.i(TAG, "registerMultiCamera invoked. Existing client=${mCameraClient != null}")
+        if (mCameraClient != null) {
+            processPendingOpenRequest()
+            return
+        }
+        mCameraMap.clear()
+        try {
+            mCurrentCamera?.cancel(true)
+            mCurrentCamera = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         mCameraClient = MultiCameraClient(view.context, object : IDeviceConnectCallBack {
             override fun onAttachDev(device: UsbDevice?) {
                 device ?: return
+                Logger.i(TAG, "onAttachDev device=${device.deviceName}")
                 view.context.let {
                     if (mCameraMap.containsKey(device.deviceId)) {
+                        Logger.i(TAG, "device already exists in map. Skipping.")
                         return
                     }
                     generateCamera(it, device).apply {
@@ -218,6 +275,7 @@ internal class UVCCameraView(
                 device ?: return
                 ctrlBlock ?: return
                 view.context ?: return
+                Logger.i(TAG, "onConnectDev device=${device.deviceName}")
                 mCameraMap[device.deviceId]?.apply {
                     setUsbControlBlock(ctrlBlock)
                 }?.also { camera ->
@@ -250,9 +308,16 @@ internal class UVCCameraView(
             }
         })
         mCameraClient?.register()
+        isClientRegistered = true
+        processPendingOpenRequest()
     }
 
     fun unRegisterMultiCamera() {
+        if (!isClientRegistered) {
+            Logger.i(TAG, "unRegisterMultiCamera skipped; client not registered.")
+            return
+        }
+        Logger.i(TAG, "unRegisterMultiCamera called. Cameras=${mCameraMap.size}")
         mCameraMap.values.forEach {
             it.closeCamera()
         }
@@ -260,6 +325,9 @@ internal class UVCCameraView(
         mCameraClient?.unRegister()
         mCameraClient?.destroy()
         mCameraClient = null
+        isClientRegistered = false
+        stateManager.updateState(CameraStateManager.CameraState.CLOSED)
+        processPendingOpenRequest()
     }
     
     private fun handleTextureView(textureView: TextureView) {
@@ -269,8 +337,14 @@ internal class UVCCameraView(
                 width: Int,
                 height: Int
             ) {
-                registerMultiCamera()
-                checkCamera()
+                Logger.i(TAG, "SurfaceTexture available. size=${width}x$height, client=${mCameraClient != null}")
+                // Only register if not already registered
+                isSurfaceAvailable = true
+                if (mCameraClient == null) {
+                    registerMultiCamera()
+                    checkCamera()
+                }
+                processPendingOpenRequest()
             }
 
             override fun onSurfaceTextureSizeChanged(
@@ -278,12 +352,19 @@ internal class UVCCameraView(
                 width: Int,
                 height: Int
             ) {
+                Logger.i(TAG, "SurfaceTexture size changed -> ${width}x$height")
                 surfaceSizeChanged(width, height)
             }
 
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                Logger.i(TAG, "SurfaceTexture destroyed. Closing current camera.")
+                isSurfaceAvailable = false
+                pendingOpenRequest = false
+                // Close camera but don't unregister - let dispose() handle full cleanup
+                getCurrentCamera()?.closeCamera()
                 unRegisterMultiCamera()
-                return false
+                // Return true to release the SurfaceTexture and avoid EGL conflicts
+                return true
             }
 
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
@@ -299,7 +380,10 @@ internal class UVCCameraView(
 
     override fun onPermissionResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (PermissionManager.isPermissionGranted(requestCode, permissions, grantResults)) {
-            registerMultiCamera()
+            Logger.i(TAG, "Permissions granted via callback.")
+            if (mCameraClient == null) {
+                registerMultiCamera()
+            }
         } else {
             callFlutter("Permission denied")
             stateManager.updateState(CameraStateManager.CameraState.ERROR, "Permission denied")
@@ -463,8 +547,27 @@ internal class UVCCameraView(
     }
 
     fun closeCamera() {
+        Logger.i(TAG, "closeCamera invoked. state=${stateManager.getCurrentState()}")
         stateManager.updateState(CameraStateManager.CameraState.CLOSING)
+        pendingOpenRequest = false
+        if (isResetting) {
+            Logger.i(TAG, "closeCamera is already resetting. Skipping duplicate call.")
+            return
+        }
+        isResetting = true
         getCurrentCamera()?.closeCamera()
+        unRegisterMultiCamera()
+        Handler(Looper.getMainLooper()).postDelayed({
+            Logger.i(TAG, "resetting camera references after close")
+            try {
+                mCurrentCamera?.cancel(true)
+                mCurrentCamera = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            isResetting = false
+            processPendingOpenRequest()
+        }, 300)
     }
 
     private fun surfaceSizeChanged(surfaceWidth: Int, surfaceHeight: Int) {

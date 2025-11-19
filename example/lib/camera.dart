@@ -17,6 +17,8 @@ class _CameraTestState extends State<CameraTest> {
   String videoPath = '';
   bool isRecording = false;
   String recordingTime = "00:00:00";
+  UVCCameraState _cameraState = UVCCameraState.closed;
+  bool _isActionInProgress = false;
 
   @override
   void initState() {
@@ -37,9 +39,33 @@ class _CameraTestState extends State<CameraTest> {
         }
       });
     };
+
+    cameraController.cameraStateCallback = (state) {
+      if (!mounted) return;
+      setState(() {
+        _cameraState = state;
+        if (state == UVCCameraState.opened ||
+            state == UVCCameraState.closed ||
+            state == UVCCameraState.error) {
+          _isActionInProgress = false;
+        }
+      });
+    };
+  }
+
+  @override
+  void dispose() {
+    try {
+      cameraController.msgCallback = null;
+      cameraController.cameraStateCallback = null;
+      cameraController.closeCamera();
+      cameraController.dispose();
+    } catch (_) {}
+    super.dispose();
   }
 
   void showCustomToast(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -88,14 +114,20 @@ class _CameraTestState extends State<CameraTest> {
                   'Open Camera',
                   Icons.camera,
                   Colors.green,
-                  () => cameraController.openUVCCamera(),
+                  (_cameraState == UVCCameraState.closed &&
+                          !_isActionInProgress)
+                      ? _handleOpenCamera
+                      : null,
                 ),
                 SizedBox(height: 16),
                 _buildControlButton(
                   'Close Camera',
                   Icons.camera_outlined,
                   Colors.red,
-                  () => cameraController.closeCamera(),
+                  (_cameraState == UVCCameraState.opened &&
+                          !_isActionInProgress)
+                      ? _handleCloseCamera
+                      : null,
                 ),
               ],
             ),
@@ -227,7 +259,7 @@ class _CameraTestState extends State<CameraTest> {
     String label,
     IconData icon,
     Color color,
-    VoidCallback onPressed, {
+    VoidCallback? onPressed, {
     bool fullWidth = false,
   }) {
     return SizedBox(
@@ -466,6 +498,38 @@ class _CameraTestState extends State<CameraTest> {
         recordingTime = "00:00:00"; // 重置录制时间
       });
       await cameraController.captureVideo();
+    }
+  }
+
+  Future<void> _handleOpenCamera() async {
+    if (_isActionInProgress) return;
+    setState(() {
+      _isActionInProgress = true;
+    });
+    try {
+      await cameraController.openUVCCamera();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isActionInProgress = false;
+      });
+      showCustomToast('Failed to open camera: $e');
+    }
+  }
+
+  Future<void> _handleCloseCamera() async {
+    if (_isActionInProgress) return;
+    setState(() {
+      _isActionInProgress = true;
+    });
+    try {
+      cameraController.closeCamera();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isActionInProgress = false;
+      });
+      showCustomToast('Failed to close camera: $e');
     }
   }
 }
