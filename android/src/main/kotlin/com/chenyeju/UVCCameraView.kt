@@ -764,9 +764,9 @@ internal class UVCCameraView(
             }
 
             override fun onError(error: String?) {
-                val scopedStorageError = error?.contains("Mutation of _data is not allowed", ignoreCase = true) == true
-                val file = File(videoPath)
-                if (scopedStorageError && file.exists()) {
+                val scopedStorageError =
+                    error?.contains("Mutation of _data is not allowed", ignoreCase = true) == true
+                if (scopedStorageError) {
                     Logger.w(TAG, "Scoped storage mutation error ignored. Using saved video at $videoPath")
                     callback.onSuccess(videoPath)
                     MediaScannerConnection.scanFile(view.context, arrayOf(videoPath), null) { _, _ -> }
