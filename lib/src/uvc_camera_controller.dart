@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -294,9 +293,17 @@ class UVCCameraController {
     _currentRecordingTimeMs = 0;
     _currentRecordingTimeFormatted = "00:00:00";
 
-    String? path = await _methodChannel?.invokeMethod('captureVideo');
-    debugPrint("path: $path");
-    return path;
+    try {
+      String? path = await _methodChannel?.invokeMethod('captureVideo');
+      debugPrint("path: $path");
+      return path;
+    } on PlatformException catch (e) {
+      debugPrint("captureVideo error: $e");
+      return null;
+    } catch (e) {
+      debugPrint("captureVideo unexpected error: $e");
+      return null;
+    }
   }
 
   /// Set camera feature value

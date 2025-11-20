@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.usb.UsbDevice
 import android.media.MediaScannerConnection
+import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -21,6 +23,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.core.app.ActivityCompat
 import androidx.core.content.PermissionChecker
 import com.chenyeju.databinding.ActivityMainBinding
@@ -745,6 +751,11 @@ internal class UVCCameraView(
             return
         }
 
+        val videoPath = generateVideoOutputPath()
+        if (videoPath == null) {
+            callback.onError("Unable to create video output file")
+            return
+        }
         captureVideoStart(object : ICaptureCallBack {
             override fun onBegin() {
                 isCapturingVideoOrAudio = true
@@ -753,6 +764,16 @@ internal class UVCCameraView(
             }
 
             override fun onError(error: String?) {
+                val scopedStorageError = error?.contains("Mutation of _data is not allowed", ignoreCase = true) == true
+                val file = File(videoPath)
+                if (scopedStorageError && file.exists()) {
+                    Logger.w(TAG, "Scoped storage mutation error ignored. Using saved video at $videoPath")
+                    callback.onSuccess(videoPath)
+                    MediaScannerConnection.scanFile(view.context, arrayOf(videoPath), null) { _, _ -> }
+                    isCapturingVideoOrAudio = false
+                    recordingTimerManager.stopRecording()
+                    return
+                }
                 isCapturingVideoOrAudio = false
                 recordingTimerManager.stopRecording()
                 callback.onError(error ?: "Video capture error")
@@ -772,6 +793,22 @@ internal class UVCCameraView(
                     callback.onError("Failed to save video")
                 }
             }
-        })
+        }, videoPath)
+    }
+
+    private fun generateVideoOutputPath(): String? {
+        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+        val fileName = "VID_UVC_${dateFormat.format(Date())}.mp4"
+        val dir: File? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            view.context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+        } else {
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+        }
+        dir?.let {
+            if (!it.exists()) {
+                it.mkdirs()
+            }
+        }
+        return dir?.let { File(it, fileName).absolutePath }
     }
 }

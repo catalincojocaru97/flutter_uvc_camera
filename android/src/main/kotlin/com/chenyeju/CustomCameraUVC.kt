@@ -300,12 +300,12 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
             val shouldInsertToMediaStore = requiresLegacyPermission
             if (shouldInsertToMediaStore) {
                 try {
-                    val values = ContentValues()
-                    values.put(MediaStore.Images.ImageColumns.TITLE, title)
-                    values.put(MediaStore.Images.ImageColumns.DISPLAY_NAME, displayName)
-                    values.put(MediaStore.Images.ImageColumns.DATA, path)
-                    values.put(MediaStore.Images.ImageColumns.DATE_TAKEN, date)
-                    ctx.contentResolver?.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            val values = ContentValues()
+            values.put(MediaStore.Images.ImageColumns.TITLE, title)
+            values.put(MediaStore.Images.ImageColumns.DISPLAY_NAME, displayName)
+            values.put(MediaStore.Images.ImageColumns.DATA, path)
+            values.put(MediaStore.Images.ImageColumns.DATE_TAKEN, date)
+            ctx.contentResolver?.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 } catch (e: Exception) {
                     Logger.e(TAG, "Failed to insert image into MediaStore", e)
                 }
