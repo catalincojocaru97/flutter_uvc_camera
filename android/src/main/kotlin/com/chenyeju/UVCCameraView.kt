@@ -341,8 +341,8 @@ internal class UVCCameraView(
                 // Only register if not already registered
                 isSurfaceAvailable = true
                 if (mCameraClient == null) {
-                    registerMultiCamera()
-                    checkCamera()
+                registerMultiCamera()
+                checkCamera()
                 }
                 processPendingOpenRequest()
             }
@@ -382,7 +382,7 @@ internal class UVCCameraView(
         if (PermissionManager.isPermissionGranted(requestCode, permissions, grantResults)) {
             Logger.i(TAG, "Permissions granted via callback.")
             if (mCameraClient == null) {
-                registerMultiCamera()
+            registerMultiCamera()
             }
         } else {
             callFlutter("Permission denied")

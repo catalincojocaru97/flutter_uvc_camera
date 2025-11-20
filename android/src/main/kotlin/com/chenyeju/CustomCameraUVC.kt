@@ -19,7 +19,10 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.hardware.usb.UsbDevice
+import android.media.MediaScannerConnection
 import android.provider.MediaStore
+import android.os.Build
+import android.os.Environment
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.TextureView
@@ -239,7 +242,8 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
 
     override fun captureImageInternal(savePath: String?, callback: ICaptureCallBack) {
         mSaveImageExecutor.submit {
-            if (! CameraUtils.hasStoragePermission(ctx)) {
+            val requiresLegacyPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+            if (requiresLegacyPermission && !CameraUtils.hasStoragePermission(ctx)) {
                 mMainHandler.post {
                     callback.onError("have no storage permission")
                 }
@@ -267,7 +271,17 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
             val date = mDateFormat.format(System.currentTimeMillis())
             val title = savePath ?: "IMG_UVC_$date"
             val displayName = savePath ?: "$title.jpg"
-            val path = savePath ?: "$mCameraDir/$displayName"
+            val appSpecificDir = ctx.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.absolutePath
+            val baseDir = if (!requiresLegacyPermission && appSpecificDir != null) {
+                appSpecificDir
+            } else {
+                mCameraDir
+            }
+            val baseDirFile = File(baseDir)
+            if (!baseDirFile.exists()) {
+                baseDirFile.mkdirs()
+            }
+            val path = savePath ?: "$baseDir/$displayName"
             val location = Utils.getGpsLocation(ctx)
             val width = mCameraRequest!!.previewWidth
             val height = mCameraRequest!!.previewHeight
@@ -283,12 +297,21 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
                 Logger.w(TAG, "save yuv to jpeg failed.")
                 return@submit
             }
-            val values = ContentValues()
-            values.put(MediaStore.Images.ImageColumns.TITLE, title)
-            values.put(MediaStore.Images.ImageColumns.DISPLAY_NAME, displayName)
-            values.put(MediaStore.Images.ImageColumns.DATA, path)
-            values.put(MediaStore.Images.ImageColumns.DATE_TAKEN, date)
-            ctx.contentResolver?.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            val shouldInsertToMediaStore = requiresLegacyPermission
+            if (shouldInsertToMediaStore) {
+                try {
+                    val values = ContentValues()
+                    values.put(MediaStore.Images.ImageColumns.TITLE, title)
+                    values.put(MediaStore.Images.ImageColumns.DISPLAY_NAME, displayName)
+                    values.put(MediaStore.Images.ImageColumns.DATA, path)
+                    values.put(MediaStore.Images.ImageColumns.DATE_TAKEN, date)
+                    ctx.contentResolver?.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Failed to insert image into MediaStore", e)
+                }
+            } else {
+                MediaScannerConnection.scanFile(ctx, arrayOf(path), arrayOf("image/jpeg")) { _, _ -> }
+            }
             mMainHandler.post {
                 callback.onComplete(path)
             }
