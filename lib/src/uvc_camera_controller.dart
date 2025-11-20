@@ -52,6 +52,9 @@ class UVCCameraController {
   /// State change callback (stream started/stopped)
   Function(StateEvent)? onStreamStateCallback;
 
+  Future<String?>? _activeVideoCaptureFuture;
+  bool _videoCaptureInProgress = false;
+
   // 当前录制时间，单位毫秒
   int _currentRecordingTimeMs = 0;
 
@@ -293,16 +296,46 @@ class UVCCameraController {
     _currentRecordingTimeMs = 0;
     _currentRecordingTimeFormatted = "00:00:00";
 
-    try {
-      String? path = await _methodChannel?.invokeMethod('captureVideo');
-      debugPrint("path: $path");
-      return path;
-    } on PlatformException catch (e) {
-      debugPrint("captureVideo error: $e");
+    if (!_videoCaptureInProgress) {
+      _videoCaptureInProgress = true;
+      try {
+        final future = _methodChannel
+            ?.invokeMethod<String>('captureVideo')
+            .catchError((error) {
+          _videoCaptureInProgress = false;
+          debugPrint("captureVideo start error: $error");
+          return null;
+        });
+        _activeVideoCaptureFuture = future;
+      } on PlatformException catch (e) {
+        _videoCaptureInProgress = false;
+        debugPrint("captureVideo error: $e");
+        return null;
+      } catch (e) {
+        _videoCaptureInProgress = false;
+        debugPrint("captureVideo unexpected error: $e");
+        return null;
+      }
+      // Start recording - return immediately. Result will be available when stop is triggered.
       return null;
-    } catch (e) {
-      debugPrint("captureVideo unexpected error: $e");
-      return null;
+    } else {
+      try {
+        // Trigger stop (fire-and-forget). Native side resolves the start future with the path.
+        _methodChannel?.invokeMethod('captureVideo');
+      } on PlatformException catch (e) {
+        debugPrint("captureVideo stop error: $e");
+      } catch (e) {
+        debugPrint("captureVideo stop unexpected error: $e");
+      }
+
+      try {
+        final path = await (_activeVideoCaptureFuture ?? Future.value(null));
+        debugPrint("path: $path");
+        return path;
+      } finally {
+        _activeVideoCaptureFuture = null;
+        _videoCaptureInProgress = false;
+      }
     }
   }
 
