@@ -798,7 +798,8 @@ internal class UVCCameraView(
 
     private fun generateVideoOutputPath(): String? {
         val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-        val fileName = "VID_UVC_${dateFormat.format(Date())}.mp4"
+        // Libausbc appends the correct extension automatically; avoid double .mp4
+        val fileName = "VID_UVC_${dateFormat.format(Date())}"
         val dir: File? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             view.context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
         } else {
