@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_uvc_camera/flutter_uvc_camera.dart';
+import 'package:gal/gal.dart';
 
 class CameraTest extends StatefulWidget {
   const CameraTest({super.key});
@@ -19,6 +20,9 @@ class _CameraTestState extends State<CameraTest> {
   String recordingTime = "00:00:00";
   UVCCameraState _cameraState = UVCCameraState.closed;
   bool _isActionInProgress = false;
+  List<PreviewSize> _availablePreviewSizes = [];
+  PreviewSize? _selectedPreviewSize;
+  bool _isLoadingPreviewSizes = false;
 
   @override
   void initState() {
@@ -139,17 +143,8 @@ class _CameraTestState extends State<CameraTest> {
             _buildSectionTitle('Camera Settings'),
             _buildControlSection(
               children: [
-                _buildControlButton(
-                  'Update Resolution',
-                  Icons.settings_overscan,
-                  Colors.blue,
-                  () async {
-                    await cameraController.getAllPreviewSizes();
-                    cameraController
-                        .updateResolution(PreviewSize(width: 352, height: 288));
-                  },
-                ),
-                SizedBox(height: 16),
+                _buildResolutionSelector(),
+                const SizedBox(height: 16),
                 _buildControlButton(
                   'Get Parameters',
                   Icons.settings,
@@ -252,6 +247,54 @@ class _CameraTestState extends State<CameraTest> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildResolutionSelector() {
+    if (_isLoadingPreviewSizes) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_availablePreviewSizes.isEmpty) {
+      return ElevatedButton.icon(
+        onPressed: _loadPreviewSizes,
+        icon: const Icon(Icons.list),
+        label: const Text('Load Resolutions'),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Preview Resolution',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        DropdownButton<PreviewSize>(
+          value: _selectedPreviewSize ?? _availablePreviewSizes.first,
+          items: _availablePreviewSizes
+              .map(
+                (size) => DropdownMenuItem<PreviewSize>(
+                  value: size,
+                  child: Text('${size.width} x ${size.height}'),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _selectedPreviewSize = value;
+            });
+            cameraController.updateResolution(value);
+            showCustomToast(
+                'Resolution set to ${value.width} x ${value.height}');
+          },
+        ),
+      ],
     );
   }
 
@@ -489,7 +532,21 @@ class _CameraTestState extends State<CameraTest> {
         setState(() {
           isRecording = false;
         });
-        showCustomToast('Video saved successfully');
+
+        try {
+          // Request access permission
+          final hasAccess = await Gal.hasAccess();
+          if (!hasAccess) {
+            await Gal.requestAccess();
+          }
+
+          // Save video to gallery
+          await Gal.putVideo('$path.mp4');
+          showCustomToast('Video saved to Gallery');
+        } catch (e) {
+          debugPrint('Error saving to gallery: $e');
+          showCustomToast('Saved locally, but failed to save to Gallery: $e');
+        }
       }
     } else {
       // 开始录制
@@ -530,6 +587,31 @@ class _CameraTestState extends State<CameraTest> {
         _isActionInProgress = false;
       });
       showCustomToast('Failed to close camera: $e');
+    }
+  }
+
+  Future<void> _loadPreviewSizes() async {
+    setState(() {
+      _isLoadingPreviewSizes = true;
+    });
+    try {
+      final sizes = await cameraController.getAllPreviewSizes();
+      if (!mounted) return;
+      setState(() {
+        _availablePreviewSizes = sizes;
+        if (sizes.isNotEmpty) {
+          _selectedPreviewSize ??= sizes.first;
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to load preview sizes: $e');
+      showCustomToast('Failed to load resolutions');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingPreviewSizes = false;
+        });
+      }
     }
   }
 }
