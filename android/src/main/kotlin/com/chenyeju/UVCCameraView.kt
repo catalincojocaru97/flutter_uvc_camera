@@ -205,6 +205,9 @@ internal class UVCCameraView(
         // Clean up FPS monitoring
         isStreaming = false
         fpsReportHandler.removeCallbacks(fpsReportRunnable)
+        
+        // Stop foreground service when view is disposed
+        CameraForegroundService.stop(mContext)
     }
 
     override fun onCameraState(
@@ -216,12 +219,18 @@ internal class UVCCameraView(
             ICameraStateCallBack.State.OPENED -> {
                 stateManager.updateState(CameraStateManager.CameraState.OPENED)
                 setButtonCallback()
+                // Start foreground service to keep camera running in background
+                CameraForegroundService.start(mContext)
             }
             ICameraStateCallBack.State.CLOSED -> {
                 stateManager.updateState(CameraStateManager.CameraState.CLOSED)
+                // Stop foreground service when camera is closed
+                CameraForegroundService.stop(mContext)
             }
             ICameraStateCallBack.State.ERROR -> {
                 stateManager.updateState(CameraStateManager.CameraState.ERROR, msg)
+                // Stop foreground service on error
+                CameraForegroundService.stop(mContext)
             }
         }
         Logger.i(TAG, "------>CameraState: $code")
@@ -800,6 +809,8 @@ internal class UVCCameraView(
                 isCapturingVideoOrAudio = true
                 callFlutter("Started video recording")
                 recordingTimerManager.startRecording()
+                // Update foreground service notification to show recording status
+                CameraForegroundService.updateRecordingStatus(mContext, true)
             }
 
             override fun onError(error: String?) {
@@ -811,10 +822,14 @@ internal class UVCCameraView(
                     MediaScannerConnection.scanFile(view.context, arrayOf(videoPath), null) { _, _ -> }
                     isCapturingVideoOrAudio = false
                     recordingTimerManager.stopRecording()
+                    // Update notification to show not recording
+                    CameraForegroundService.updateRecordingStatus(mContext, false)
                     return
                 }
                 isCapturingVideoOrAudio = false
                 recordingTimerManager.stopRecording()
+                // Update notification to show not recording
+                CameraForegroundService.updateRecordingStatus(mContext, false)
                 callback.onError(error ?: "Video capture error")
             }
 
@@ -826,9 +841,13 @@ internal class UVCCameraView(
                     }
                     isCapturingVideoOrAudio = false
                     recordingTimerManager.stopRecording()
+                    // Update notification to show not recording
+                    CameraForegroundService.updateRecordingStatus(mContext, false)
                 } else {
                     isCapturingVideoOrAudio = false
                     recordingTimerManager.stopRecording()
+                    // Update notification to show not recording
+                    CameraForegroundService.updateRecordingStatus(mContext, false)
                     callback.onError("Failed to save video")
                 }
             }

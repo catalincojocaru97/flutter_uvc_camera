@@ -1,2 +1,17 @@
-<manifest package="com.chenyeju">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.chenyeju">
+
+    <!-- Foreground service permissions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <application>
+        <!-- Camera foreground service for background recording -->
+        <service
+            android:name=".CameraForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera|microphone" />
+    </application>
 </manifest>

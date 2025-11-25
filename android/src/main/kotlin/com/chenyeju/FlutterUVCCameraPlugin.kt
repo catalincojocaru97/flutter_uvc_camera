@@ -196,6 +196,21 @@ class FlutterUVCCameraPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             "getPlatformVersion" -> {
                 result.success("Android " + Build.VERSION.RELEASE)
             }
+            
+            // Foreground service control
+            "startForegroundService" -> {
+                activity?.let { CameraForegroundService.start(it) }
+                result.success(null)
+            }
+            
+            "stopForegroundService" -> {
+                activity?.let { CameraForegroundService.stop(it) }
+                result.success(null)
+            }
+            
+            "isForegroundServiceRunning" -> {
+                result.success(CameraForegroundService.isServiceRunning())
+            }
 
             else -> {
                 result.notImplemented()

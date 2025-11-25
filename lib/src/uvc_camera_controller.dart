@@ -457,4 +457,26 @@ class UVCCameraController {
   void closeCamera() {
     _methodChannel?.invokeMethod('closeCamera');
   }
+
+  // ==================== Foreground Service Control ====================
+
+  /// Start the foreground service manually.
+  /// Note: The service is automatically started when the camera opens
+  /// and stopped when the camera closes. Use this for manual control if needed.
+  Future<void> startForegroundService() async {
+    await _methodChannel?.invokeMethod('startForegroundService');
+  }
+
+  /// Stop the foreground service manually.
+  /// Note: The service is automatically stopped when the camera closes.
+  /// Use this for manual control if needed.
+  Future<void> stopForegroundService() async {
+    await _methodChannel?.invokeMethod('stopForegroundService');
+  }
+
+  /// Check if the foreground service is currently running.
+  Future<bool> isForegroundServiceRunning() async {
+    final result = await _methodChannel?.invokeMethod<bool>('isForegroundServiceRunning');
+    return result ?? false;
+  }
 }
