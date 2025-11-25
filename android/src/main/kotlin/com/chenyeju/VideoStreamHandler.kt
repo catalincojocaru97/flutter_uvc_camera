@@ -21,7 +21,7 @@ class VideoStreamHandler : EventChannel.StreamHandler {
     private var currentFps = 0
     
     // 控制参数
-    var frameRateLimit = 30
+    var frameRateLimit = 120  // Increased from 30 to support high FPS cameras
     var frameSizeLimit = 0
     private var lastFrameTime = 0L
     

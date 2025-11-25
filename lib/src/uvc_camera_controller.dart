@@ -247,7 +247,7 @@ class UVCCameraController {
 
   /// 设置视频帧率限制
   Future<void> setVideoFrameRateLimit(int fps) async {
-    if (fps < 1 || fps > 130) {
+    if (fps < 1 || fps > 150) {
       throw ArgumentError('帧率必须在1-60之间');
     }
     await _methodChannel?.invokeMethod('setVideoFrameRateLimit', {'fps': fps});
@@ -476,7 +476,8 @@ class UVCCameraController {
 
   /// Check if the foreground service is currently running.
   Future<bool> isForegroundServiceRunning() async {
-    final result = await _methodChannel?.invokeMethod<bool>('isForegroundServiceRunning');
+    final result =
+        await _methodChannel?.invokeMethod<bool>('isForegroundServiceRunning');
     return result ?? false;
   }
 }

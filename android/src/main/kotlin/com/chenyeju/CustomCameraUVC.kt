@@ -138,7 +138,7 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
         }
 
         var minFps = 10
-        var maxFps = 60
+        var maxFps = 150
         var frameFormat = UVCCamera.FRAME_FORMAT_MJPEG
         var bandwidthFactor = UVCCamera.DEFAULT_BANDWIDTH
 
