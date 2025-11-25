@@ -23,6 +23,7 @@ class _CameraTestState extends State<CameraTest> {
   List<PreviewSize> _availablePreviewSizes = [];
   PreviewSize? _selectedPreviewSize;
   bool _isLoadingPreviewSizes = false;
+  bool _hasAutoSelectedResolution = false;
 
   @override
   void initState() {
@@ -44,6 +45,8 @@ class _CameraTestState extends State<CameraTest> {
       });
     };
 
+    //cameraController.setVideoFrameRateLimit(60);
+
     cameraController.cameraStateCallback = (state) {
       if (!mounted) return;
       setState(() {
@@ -54,6 +57,9 @@ class _CameraTestState extends State<CameraTest> {
           _isActionInProgress = false;
         }
       });
+      if (state == UVCCameraState.opened && !_hasAutoSelectedResolution) {
+        _autoSelectBestResolution();
+      }
     };
   }
 
@@ -353,6 +359,11 @@ class _CameraTestState extends State<CameraTest> {
                     child: UVCCameraView(
                       cameraController: cameraController,
                       params: const UVCCameraViewParamsEntity(
+                        previewWidth: 1280,
+                        previewHeight: 720,
+                        minFps: 90,
+                        maxFps: 150, // Camera supports up to 150fps at 720p
+                        bandwidthFactor: 1.0,
                         frameFormat: 1,
                         rawPreviewData: true,
                         captureRawImage: true,
@@ -613,5 +624,30 @@ class _CameraTestState extends State<CameraTest> {
         });
       }
     }
+  }
+
+  Future<void> _autoSelectBestResolution() async {
+    if (_availablePreviewSizes.isEmpty) {
+      await _loadPreviewSizes();
+    }
+    if (!mounted || _availablePreviewSizes.isEmpty) return;
+
+    int _area(PreviewSize size) => (size.width ?? 0) * (size.height ?? 0);
+
+    final best = _availablePreviewSizes.reduce(
+      (curr, next) => _area(curr) >= _area(next) ? curr : next,
+    );
+
+    if (_selectedPreviewSize == best) {
+      _hasAutoSelectedResolution = true;
+      return;
+    }
+
+    setState(() {
+      _selectedPreviewSize = best;
+      _hasAutoSelectedResolution = true;
+    });
+    cameraController.updateResolution(best);
+    showCustomToast('Auto resolution: ${best.width} x ${best.height}');
   }
 }

@@ -147,6 +147,8 @@ class _FeaturesDemoState extends State<FeaturesDemo> {
                   child: UVCCameraView(
                     cameraController: cameraController,
                     params: const UVCCameraViewParamsEntity(
+                      minFps: 30,
+                      maxFps: 60,
                       frameFormat: 1,
                       rawPreviewData: true,
                       captureRawImage: true,

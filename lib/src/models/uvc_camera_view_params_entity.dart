@@ -27,6 +27,14 @@ class UVCCameraViewParamsEntity {
   /// Defaults to false
   final bool? captureRawImage;
 
+  /// Preferred preview width (e.g., 1920 for Full HD)
+  /// If not supported, nearest available size will be used
+  final int? previewWidth;
+
+  /// Preferred preview height (e.g., 1080 for Full HD)
+  /// If not supported, nearest available size will be used
+  final int? previewHeight;
+
   const UVCCameraViewParamsEntity({
     this.minFps = 10,
     this.maxFps = 60,
@@ -34,6 +42,8 @@ class UVCCameraViewParamsEntity {
     this.frameFormat = 1,
     this.rawPreviewData = false,
     this.captureRawImage = false,
+    this.previewWidth = 1920,
+    this.previewHeight = 1080,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +54,8 @@ class UVCCameraViewParamsEntity {
       "bandwidthFactor": bandwidthFactor,
       "rawPreviewData": rawPreviewData,
       "captureRawImage": captureRawImage,
+      "previewWidth": previewWidth,
+      "previewHeight": previewHeight,
     };
   }
 }

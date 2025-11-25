@@ -147,6 +147,8 @@ internal class UVCCameraView(
     private var pendingOpenRequest = false
     private var isClientRegistered = false
     private var isResetting = false
+    private var lastUnregisterTime = 0L
+    private val MIN_REREGISTER_DELAY_MS = 500L
 
     private fun processPendingOpenRequest() {
         if (
@@ -231,6 +233,18 @@ internal class UVCCameraView(
             processPendingOpenRequest()
             return
         }
+        
+        // Check if we need to wait for USB cleanup
+        val timeSinceUnregister = System.currentTimeMillis() - lastUnregisterTime
+        if (lastUnregisterTime > 0 && timeSinceUnregister < MIN_REREGISTER_DELAY_MS) {
+            val remainingDelay = MIN_REREGISTER_DELAY_MS - timeSinceUnregister
+            Logger.i(TAG, "Delaying registration by ${remainingDelay}ms to allow USB cleanup")
+            Handler(Looper.getMainLooper()).postDelayed({
+                registerMultiCamera()
+            }, remainingDelay)
+            return
+        }
+        
         mCameraMap.clear()
         try {
             mCurrentCamera?.cancel(true)
@@ -324,16 +338,41 @@ internal class UVCCameraView(
             return
         }
         Logger.i(TAG, "unRegisterMultiCamera called. Cameras=${mCameraMap.size}")
+        
+        // Close all cameras first
         mCameraMap.values.forEach {
-            it.closeCamera()
+            try {
+                it.closeCamera()
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error closing camera", e)
+            }
         }
         mCameraMap.clear()
-        mCameraClient?.unRegister()
-        mCameraClient?.destroy()
+        
+        // Unregister and destroy client
+        try {
+            mCameraClient?.unRegister()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error unregistering client", e)
+        }
+        
+        try {
+            mCameraClient?.destroy()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error destroying client", e)
+        }
+        
         mCameraClient = null
         isClientRegistered = false
+        mCurrentCamera = null
+        lastUnregisterTime = System.currentTimeMillis()
+        
         stateManager.updateState(CameraStateManager.CameraState.CLOSED)
-        processPendingOpenRequest()
+        
+        // Add delay before allowing re-registration to let USB subsystem clean up
+        Handler(Looper.getMainLooper()).postDelayed({
+            processPendingOpenRequest()
+        }, MIN_REREGISTER_DELAY_MS)
     }
     
     private fun handleTextureView(textureView: TextureView) {

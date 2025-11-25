@@ -101,8 +101,8 @@ class _StreamsDemoState extends State<StreamsDemo> {
     };
 
     // After initializing camera
-    cameraController.setVideoFrameRateLimit(20); // Lower than default 30
-    cameraController.setVideoFrameSizeLimit(1024 * 1024); // Limit frame size
+    cameraController.setVideoFrameRateLimit(130); // Lower than default 30
+    cameraController.setVideoFrameSizeLimit(1024 * 720); // Limit frame size
   }
 
   @override
@@ -187,10 +187,15 @@ class _StreamsDemoState extends State<StreamsDemo> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: UVCCameraView(
-                    cameraController: cameraController!,
-                    params: const UVCCameraViewParamsEntity(frameFormat: 0),
-                    width: 300,
-                    height: 300,
+                    cameraController: cameraController,
+                    params: const UVCCameraViewParamsEntity(
+                      minFps: 60,
+                      maxFps: 120, // Allow higher frame rates if supported
+                      bandwidthFactor: 1.0,
+                      frameFormat: 1,
+                    ),
+                    width: 600,
+                    height: 600,
                     autoDispose: false,
                   ),
                 ),
@@ -207,7 +212,8 @@ class _StreamsDemoState extends State<StreamsDemo> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '$_currentFps FPS',
+                      // Show GL render FPS (actual camera fps) if available, otherwise stream fps
+                      '${_renderFps > 0 ? _renderFps : _currentFps} FPS',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight:
@@ -390,10 +396,11 @@ class _StreamsDemoState extends State<StreamsDemo> {
                     ),
                     const SizedBox(height: 16),
                     _buildStatRow('Stream State', streamState),
-                    _buildStatRow('Current FPS', _currentFps.toString()),
-                    if (_renderFps > 0)
-                      _buildStatRow('GL Render FPS', _renderFps.toString(),
-                          highlight: true),
+                    _buildStatRow('Camera FPS (GL Render)',
+                        _renderFps > 0 ? _renderFps.toString() : 'N/A',
+                        highlight: _renderFps > 0),
+                    _buildStatRow(
+                        'Stream FPS (to Flutter)', _currentFps.toString()),
                     _buildStatRow('Recording Status',
                         isRecording ? 'Recording' : 'Not Recording',
                         highlight: isRecording),

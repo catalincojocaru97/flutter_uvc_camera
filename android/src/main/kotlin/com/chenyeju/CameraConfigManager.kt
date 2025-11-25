@@ -13,8 +13,8 @@ import com.jiangdg.uvc.UVCCamera
 class CameraConfigManager {
     // Default values
     companion object {
-        const val DEFAULT_PREVIEW_WIDTH = 640
-        const val DEFAULT_PREVIEW_HEIGHT = 480
+        const val DEFAULT_PREVIEW_WIDTH = 1920
+        const val DEFAULT_PREVIEW_HEIGHT = 1080
         const val DEFAULT_MIN_FPS = 10
         const val DEFAULT_MAX_FPS = 60
         const val DEFAULT_FRAME_FORMAT = UVCCamera.FRAME_FORMAT_MJPEG

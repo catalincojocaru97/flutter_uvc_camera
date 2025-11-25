@@ -17,12 +17,16 @@ class PermissionManager {
 
         private fun getRequiredPermissions(): Array<String> {
             // From Android 10 (API 29) and above, WRITE_EXTERNAL_STORAGE is deprecated/ignored.
-            // We only need CAMERA for opening/previewing the UVC camera.
+            // We need CAMERA for opening/previewing the UVC camera and RECORD_AUDIO for video recording with audio.
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                arrayOf(Manifest.permission.CAMERA)
+                arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO
+                )
             } else {
                 arrayOf(
                     Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
                 )
             }

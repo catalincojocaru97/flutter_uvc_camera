@@ -247,7 +247,7 @@ class UVCCameraController {
 
   /// 设置视频帧率限制
   Future<void> setVideoFrameRateLimit(int fps) async {
-    if (fps < 1 || fps > 60) {
+    if (fps < 1 || fps > 130) {
       throw ArgumentError('帧率必须在1-60之间');
     }
     await _methodChannel?.invokeMethod('setVideoFrameRateLimit', {'fps': fps});
